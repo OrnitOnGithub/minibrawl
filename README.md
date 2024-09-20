@@ -1,2 +1,2 @@
 # minibrawl
-Small monoscript python brawl game
+Small monoscript python peer-to-peer top-down shooter
