@@ -19,6 +19,7 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+print("Copyright (c) 2024 Ornithopter747")
 
 import threading
 import pygame
@@ -73,18 +74,24 @@ class Bullet:
 
 PORT = 25565
 players = []
-
+kill_udp_listener = False
 def udp_listener(port=PORT):
+    global kill_udp_listener
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind(('', port))
+    print("UDP listening socket bound.")
     
     while True:
+
+        if kill_udp_listener:
+            break
+
         data, addr = sock.recvfrom(1024)
         data = data.decode('utf-8')
         data = json.loads(data)
         player_data = Player.from_json(data)
         ip = addr[0]
-        print(addr)
+        # print(addr)
         player_data.ip = ip
 
         for i, existing_player in enumerate(players):
@@ -96,33 +103,57 @@ def udp_listener(port=PORT):
 
         # print(f"Received player update: {player_data}")
 
+print("UDP listening thread started.")
 listen_thread = threading.Thread(target=udp_listener)
 listen_thread.start()
 
 
 player = Player(Vector2(10.0, 10.0), ip="0.0.0.0")
-speed = 0.300
+speed = 0.300 # Why are you looking at this? are you trying to cheat? bad friend.
 movement = Vector2(0.0, 0.0)
 mov_right = 0.0
 mov_left = 0.0
 mov_up = 0.0
 mov_down = 0.0
+mouse_pos = Vector2(0.0, 0.0)
+mouse_pressed = False
 
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+print("UDP sending socket bound.")
 
 pygame.init()
 clock = pygame.time.Clock()
 screen = pygame.display.set_mode((1000, 600))
 pygame.display.set_caption("Minibrawl")
+print("Pygame started.")
 
 running = True
 while running:
     for event in pygame.event.get():
+
         if event.type == pygame.QUIT:
             running = False
+            kill_udp_listener = True
+
+        # Mouse
+        if event.type == pygame.MOUSEMOTION:
+            mouse_pos.x = event.pos[0]
+            mouse_pos.y = event.pos[1]
+        if (event.type == pygame.MOUSEBUTTONDOWN):
+            mouse_pressed = True
+        if (event.type == pygame.MOUSEBUTTONUP):
+            mouse_pressed = False
+
+        
+        # Keyboard
         if event.type == pygame.KEYDOWN:
+            # Quit the game
+            if event.key == pygame.K_ESCAPE:
+                running = False
+                kill_udp_listener = True
+            # Movement input
             if event.key == pygame.K_a:
                 mov_left = 1.0
             if event.key == pygame.K_d:
@@ -146,22 +177,30 @@ while running:
         if movement.x ** 2 == 1.0 and movement.y ** 2 == 1.0:
             movement.x /= 1.42
             movement.y /= 1.42
-
-        print(movement.x, movement.y)
+        # print(movement.x, movement.y)
 
     dt = clock.tick(60)
-
 
     player.position.x += movement.x * speed * dt
     player.position.y += movement.y * speed * dt
 
-    print("SELF:", player)
+    if player.position.x > 1000:
+        player.position.x = 1000
+    if player.position.y > 600:
+        player.position.y = 600
+    if player.position.y < 0:
+        player.position.y = 0
+    if player.position.x < 0:
+        player.position.x = 0
 
-    print(len(players))
-    if len(players) > 0:
-        print(players[0])
+    # print("SELF:", player)
+    # print(len(players))
+    # if len(players) > 0:
+    #     print(players[0])
 
     screen.fill((255, 255, 255))
+
+    pygame.draw.line(start_pos=(player.position.x, player.position.y), end_pos=(mouse_pos.x, mouse_pos.y), width=2, surface=screen, color=(255, 0, 0))
 
     # player.draw(screen)
 
@@ -178,7 +217,5 @@ while running:
 
 
     pygame.display.flip()
-
-
 pygame.quit()
 sys.exit()
